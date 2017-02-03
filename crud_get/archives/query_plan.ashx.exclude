@@ -1,0 +1,89 @@
+﻿<%@ WebHandler Language="C#" Class="get_event" %>
+///<summary> 
+///模块编号：archives-01 电子档案管理子系统1号模块 query功能代码   
+///作用：获取数据，转换日期字段，对部分字段排序
+///作者：by wya 
+///编写日期：2014-08-26  
+///</summary>
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.UI;
+using System.Web.UI.WebControls;
+using System.Data;
+using System.Text;
+using System.Web.Script.Serialization;
+
+public class get_event : IHttpHandler {
+    
+    public void ProcessRequest (HttpContext context) {
+        int page = Convert.ToInt32(context.Request.Params["page"]);//页索引
+        int rows = Convert.ToInt32(context.Request.Params["rows"]);
+        string KWORDS = context.Request.Params["KWORDS"];//以关键字为查询项
+        
+        DB db = new DB();
+        //string sqlstr = "select * from(select t.*,rownum rn from(select * from T_plan ) t where rownum<=" + page * rows + ") where rn>" + (page - 1) * rows + "";
+        string sql = "select count(*) from T_plan";
+        //string sqlstr = "select * from(select t.*,rownum rn from(select * from T_plan where kwords='"+ KWORDS +"') t where rownum<=" + page * rows + ") where rn>" + (page - 1) * rows + "";
+        string sqlstr = "select * from T_plan where kwords='"+ KWORDS +"'";
+        int Count = db.GetCount(sql);//获取总条数
+        DataTable dt = db.GetDataTable(sqlstr); //数据源             
+        String jsonData = ToJson(dt, Count);
+        context.Response.Write(jsonData);
+        context.Response.End();
+    
+        
+        
+        
+    }
+
+     #region dataTable转换成Json格式
+    /// <summary>      
+    /// dataTable转换成Json格式      
+    /// </summary>      
+    /// <param name="dt"></param>      
+    /// <returns></returns>      
+    public static string ToJson(DataTable dt, int Count)
+    {
+        StringBuilder jsonBuilder = new StringBuilder();
+
+        jsonBuilder.Append("[");
+        for (int i = 0; i < dt.Rows.Count; i++)
+        {
+            jsonBuilder.Append("{");
+            for (int j = 0; j < dt.Columns.Count; j++)
+            {
+                jsonBuilder.Append("\"");
+                string tempColname = dt.Columns[j].ColumnName;
+                jsonBuilder.Append(tempColname);
+                jsonBuilder.Append("\":\"");
+                string tempValue = dt.Rows[i][j].ToString();
+                if (tempColname == "BXRQ" ) {
+                    if (tempValue != null && !"".Equals(tempValue)) { 
+                    tempValue = Convert.ToDateTime(tempValue).ToShortDateString();//把数据库中取出来的日期转换为标准格式YYYY-MM-DD
+                    }
+                }
+                
+                jsonBuilder.Append(tempValue);
+                jsonBuilder.Append("\",");
+            }
+            jsonBuilder.Remove(jsonBuilder.Length - 1, 1);
+            jsonBuilder.Append("},");
+        }
+        jsonBuilder.Remove(jsonBuilder.Length - 1, 1);
+        jsonBuilder.Append("]");
+        jsonBuilder.Append("}");
+        string Json_data = "";
+        Json_data = "{\"total\":" + Count.ToString() + ",\"rows\":" + jsonBuilder.ToString();
+        return Json_data;
+
+    }
+    #endregion dataTable转换成Json格式    
+    public bool IsReusable {
+        get {
+            return false;
+        }
+    }
+
+}
